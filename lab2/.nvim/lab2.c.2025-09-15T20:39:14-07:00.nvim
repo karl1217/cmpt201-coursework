@@ -1,0 +1,51 @@
+#define _POSIX_C_SOURCE 200809L
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+int main() {
+
+  char *buff = NULL;
+  size_t size = 0;
+
+  printf("Enter programs to run.\n");
+
+  // Get user input and handle error
+  ssize_t num_char = getline(&buff, &size, stdin);
+
+  if (num_char == -1) {
+    perror("getline failed");
+    exit(EXIT_FAILURE);
+  }
+
+  // Tokenize input (remove \n)
+  char *saveptr;
+  char *ret = strtok_r(buff, "\n", &saveptr);
+
+  // Call fork() to create a new process
+  pid_t pid;
+  pid = fork();
+  int status;
+
+  // Call execl() if process_id == 0 (child process)
+  if (pid == 0) {
+    // If execl() returns -1, error
+    if (execl(ret, "test", NULL) == -1) {
+      printf("Exec failure");
+    }
+
+  }
+  // If no child process is created, display error
+  else if (pid == -1) {
+    perror("error with pid");
+  }
+
+  // Call waitpid() to wait for child process to end if parent process
+  else {
+    waitpid(pid, &status, 0);
+  }
+
+  return 0;
+}
