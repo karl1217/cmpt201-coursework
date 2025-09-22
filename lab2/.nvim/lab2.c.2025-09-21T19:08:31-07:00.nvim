@@ -13,6 +13,7 @@ int main() {
   char *saveptr;
   char *ret;
 
+
   while (1) {
 
     printf("Enter programs to run.\n");
@@ -31,12 +32,13 @@ int main() {
     // Call fork() to create a new process
     pid_t pid = fork();
 
-    // Call execl() if child process
+    // Call execl() if child process 
     if (pid == 0) {
       // If execl() returns -1, error
       if (execl(ret, ret, NULL) == -1) {
         printf("Exec failure\n");
       }
+
     }
     // If no child process is created, display error
     else if (pid == -1) {

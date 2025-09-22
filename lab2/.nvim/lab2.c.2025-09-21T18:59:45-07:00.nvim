@@ -13,6 +13,9 @@ int main() {
   char *saveptr;
   char *ret;
 
+  pid_t pid;
+  int status;
+
   while (1) {
 
     printf("Enter programs to run.\n");
@@ -29,23 +32,23 @@ int main() {
     ret = strtok_r(buff, "\n", &saveptr);
 
     // Call fork() to create a new process
-    pid_t pid = fork();
+    pid = fork();
 
-    // Call execl() if child process
+    // Call execl() if process_id == 0 (child process)
     if (pid == 0) {
       // If execl() returns -1, error
       if (execl(ret, ret, NULL) == -1) {
         printf("Exec failure\n");
       }
+
     }
     // If no child process is created, display error
     else if (pid == -1) {
-      perror("pid error");
+      perror("error with pid");
     }
 
     // Call waitpid() to wait for child process to end if parent process
     else {
-      int status = 0;
       waitpid(pid, &status, 0);
     }
   }
