@@ -1,0 +1,92 @@
+#define _POSIX_C_SOURCE 200809L
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+char *buff = NULL;
+char *words[5] = {NULL}; //Initialize all pointers to null
+                         
+void freeMemory() {
+  
+  //Free each pointer in the array
+  for (size_t i = 0; i < 5; i++) {
+    free(words[i]);
+    words[i] = NULL;
+  }
+
+  free(buff);
+  buff = NULL;
+}
+
+void handle_sigint(int signum) { 
+  freeMemory();
+  printf("done");
+  exit(EXIT_SUCCESS);
+}
+
+void printHistory(char *words[], size_t index) {
+
+  // If array is not filled yet, print starting from 0
+  if (index < 5) {
+    for (size_t i = 0; i < index; i++) {
+      printf("%s\n", words[i]);
+    }
+  }
+
+  // If array has looped around, print from index
+  else {
+    // Print values starting from index (first word)
+    for (size_t i = 0; i < 5; i++) {
+      printf("%s\n", words[index % 5]);
+      index++;
+    }
+  }
+}
+
+int main() {
+  size_t size = 0;
+
+  char *saveptr;
+  char *ret;
+
+  char *words[5] = {NULL}; //Initialize all pointers to null
+  size_t index = 0; // The index of the word to print first
+
+  struct sigaction handler;
+
+  handler.sa_handler = handle_sigint;
+  handler.sa_flags = 0;
+  sigemptyset(&handler.sa_mask);
+  sigaction(SIGINT, &handler, NULL);
+
+  while (1) {
+    printf("Enter input: ");
+    // Get input
+    ssize_t num_char = getline(&buff, &size, stdin);
+
+    if (num_char == -1) {
+      perror("getline failed");
+      exit(EXIT_FAILURE);
+    }
+
+    // Remove '\n' from input string
+    ret = strtok_r(buff, "\n", &saveptr);
+
+    // If input is "", ret becomes NULL so assign ret to ""
+    if (ret == NULL) {
+      ret = "";
+    }
+
+    // Call printHistory() if "print" is entered
+    //   If index goes out of bounds, go back to
+    //   start of the array
+    words[index % 5] = strdup(ret);
+    index++;
+
+    if (strcmp(ret, "print") == 0) {
+      printHistory(words, index);
+    }
+  }
+  return 0;
+}

@@ -1,0 +1,67 @@
+#define _POSIX_C_SOURCE 200809L
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+void printHistory(char *words[], size_t index) {
+
+  // If array is not filled yet, print starting from 0
+  if (index < 5) {
+    for (size_t i = 0; i < index; i++) {
+      printf("%s\n", words[i]);
+    }
+  }
+
+  // If array has looped around, print from index
+  else {
+    // Print values starting from index (first word)
+    for (size_t i = 0; i < 5; i++) {
+      printf("%s\n", words[index % 5]);
+      index++;
+    }
+  }
+}
+
+void freeArray(char *words[]) {
+  for (size_t i = 0; i < 5; i++) {
+    free(words[i]);
+  }
+}
+
+int main() {
+  char *buff = NULL;
+  size_t size = 0;
+
+  char *saveptr;
+  char *ret;
+
+  char *words[5];
+  size_t index = 0; // The index of the word to print first
+
+  while (1) {
+    printf("Enter input: ");
+    // Get input
+    ssize_t num_char = getline(&buff, &size, stdin);
+
+    if (num_char == -1) {
+      perror("getline failed");
+      exit(EXIT_FAILURE);
+    }
+
+    // Remove '\n' from input string
+    ret = strtok_r(buff, "\n", &saveptr);
+
+    // If input is "print" call printHistory()
+    //   If index goes out of bounds, go back to
+    //   start of the array
+    words[index % 5] = strdup(ret);
+    index++;
+
+    if (strcmp(ret, "print") == 0) {
+      printHistory(words, index);
+    }
+  }
+  free(buff);
+  freeArray(words);
+  return 0;
+}

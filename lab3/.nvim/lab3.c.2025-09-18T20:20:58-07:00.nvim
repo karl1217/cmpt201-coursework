@@ -1,0 +1,45 @@
+#define _POSIX_C_SOURCE 200809L
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+void printHistory(char *words[], size_t index) {
+  
+  size_t current = index - 1;
+  
+  for (size_t i = 0; i < 5; i++) {
+    printf("%s\n", words[current % 5]);
+    current++;
+  }
+
+  return;
+}
+
+int main() {
+
+  //Array thats holds a pointer to each of the last 5 words
+  char *words[5];
+  size_t index = 0;
+  char *buff = NULL;
+  size_t size = 0;
+
+  while(1){
+    printf("Enter input: ");
+  
+    ssize_t num_char = getline(&buff, &size, stdin);
+  
+    if (num_char == -1) {
+      perror("getline failed");
+      exit(EXIT_FAILURE);
+    }
+
+    if (strcmp(buff, "print") == 0) {
+      printHistory(words, index);
+    } else {
+      words[index % 5] = buff;  
+      index++;
+    }
+  }
+  free(buff);
+  return 0;
+}
