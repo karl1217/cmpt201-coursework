@@ -1,0 +1,32 @@
+#define _DEFAULT_SOURCE
+#include <unistd.h>
+#include <stdint.h>
+#include <stdio.h>
+
+struct header {
+  uint64_t size;
+  struct header *next;
+};
+
+int main() {
+
+  //Increase heap by 256 bytes
+  void *start_address = sbrk(256);
+
+  //Place first header in first block
+  struct header *first_block = (struct header *)start_address;
+
+  //Place second header 128 bytes after first header
+  struct header *second_block = (struct header *)(start_address + 128);
+
+  //Initialize headers
+  first_block->size = 128;
+  first_block->next = NULL;
+
+  second_block->size = 128;
+  second_block->next = first_block;
+
+  //Initialize data
+  
+  return 0;
+}

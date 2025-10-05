@@ -1,0 +1,7 @@
+#include <unistd.h>
+#define _BSD_SOURCE
+int main() {
+  void *p = sbrk(128);
+
+  return 0;
+}

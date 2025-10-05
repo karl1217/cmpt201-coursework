@@ -1,0 +1,13 @@
+#define _DEFAULT_SOURCE
+#include <unistd.h>
+
+struct header {
+  uint64_t size;
+  struct header* next;
+};
+
+int main() {
+  void *p = sbrk(128);
+
+  return 0;
+}

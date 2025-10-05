@@ -1,0 +1,18 @@
+#define _POSIX_C_SOURCE 200809L
+#include <unistd.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+struct header {
+  uint64_t size;
+  struct header* next;
+};
+
+int main() {
+  // Move break 128 bytes
+  void *start_address = sbrk(128);
+
+  // Create first header
+  struct header *mem_block_1 = (struct header *)start_address;
+  return 0;
+}
