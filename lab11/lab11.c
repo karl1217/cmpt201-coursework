@@ -114,23 +114,34 @@ int verify(const char *message_path, const char *sign_path, EVP_PKEY *pubkey) {
 
   // TODO: Check if the message is authentic using the signature.
   // Look at: https://wiki.openssl.org/index.php/EVP_Signing_and_Verifying
-  FILE *message_file = fopen(message_path, "r");
-  size_t n = fread(message, 1, sizeof(message), message_file);
+  FILE *message_file = fopen(message_path, "rb");
+  if (!message_file) {
+    handle_error("Error opening file");
+  }
+  size_t message_len = fread(message, 1, sizeof(message), message_file);
   fclose(message_file);
 
-  FILE *signature_file = fopen(sign_path, "r");
+  FILE *signature_file = fopen(sign_path, "rb");
   if (!signature_file) {
     handle_error("Error opening file");
   }
-  n = fread(signature, 1, sizeof(signature), signature_file);
+  size_t signature_len = fread(signature, 1, sizeof(signature), signature_file);
   fclose(signature_file);
 
-  EVP_MD_CTX *mdctx = NULL;
-  mdctx = EVP_MD_CTX_new();
-  int ret = 0;
-  EVP_DigestVerifyInit(mdctx, NULL, EVP_sha256(), NULL, pubkey);
-  EVP_DigestVerifyUpdate(mdctx, message, sizeof(message));
-  ret = EVP_DigestVerifyFinal(mdctx, signature, sizeof(signature));
+  EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
+  if (!mdctx) {
+    return -1;
+  }
+
+  if (EVP_DigestVerifyInit(mdctx, NULL, EVP_sha256(), NULL, pubkey) != 1) {
+    return -1;
+  }
+
+  if (EVP_DigestVerifyUpdate(mdctx, message, message_len) != 1) {
+    return -1;
+  }
+
+  int ret = EVP_DigestVerifyFinal(mdctx, signature, signature_len);
   EVP_MD_CTX_free(mdctx);
 
   return ret;
