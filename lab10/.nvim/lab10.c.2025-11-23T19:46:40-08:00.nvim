@@ -1,0 +1,200 @@
+#include <arpa/inet.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+#define PORT 8001
+#define BUF_SIZE 1024
+#define ADDR "127.0.0.1"
+
+#define handle_error(msg)                                                      \
+  do {                                                                         \
+    perror(msg);                                                               \
+    exit(EXIT_FAILURE);                                                        \
+  } while (0)
+
+#define NUM_MSG 5
+
+static const char *messages[NUM_MSG] = {"Hello", "Apple", "Car", "Green",
+                                        "Dog"};
+
+int main() {
+  int sfd = socket(AF_INET, SOCK_STREAM, 0);
+  if (sfd == -1) {
+    handle_error("socket");
+  }
+
+  struct sockaddr_in addr;
+  memset(&addr, 0, sizeof(struct sockaddr_in));
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(PORT);
+  if (inet_pton(AF_INET, ADDR, &addr.sin_addr) <= 0) {
+    handle_error("inet_pton");
+  }
+
+  if (connect(sfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+    handle_error("connect");
+  }
+
+  char buf[BUF_SIZE];
+  for (int i = 0; i < NUM_MSG; i++) {
+    sleep(1);
+    // prepare message
+    // this pads the desination with NULL
+    strncpy(buf, messages[i], BUF_SIZE);
+
+    if (write(sfd, buf, BUF_SIZE) == -1) {
+      handle_error("write");
+    } else {
+      printf("Sent: %s\n", messages[i]);
+    }
+  }
+
+  exit(EXIT_SUCCESS);
+}
+/*
+Questions to answer at top of server.c:
+(You should not need to change client.c)
+Understanding the Client:
+1. How is the client sending data to the server? What protocol?
+  The client loops through a messages array and writes it to the server file
+descriptor using TCP.
+
+2. What data is the client sending to the server?
+  The client is sending strings to the server.
+
+Understanding the Server:
+1. Explain the argument that the `run_acceptor` thread is passed as an argument.
+  A struct containing a flag to run the client or not, a list of messages, and a
+mutex for the messages list.
+
+2. How are received messages stored?
+  The received messaged are stored in a linked list.
+
+3. What does `main()` do with the received messages?
+  main() prints all the received messages.
+
+4. How are threads used in this sample code?
+  Threads are used to create a thread which creates a new thread for each
+client. This client thread accepts messages.
+*/
+#include <arpa/inet.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <pthread.h>
+#include <stdatomic.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#define BUF_SIZE 1024
+#define PORT 8001
+#define LISTEN_BACKLOG 32
+#define MAX_CLIENTS 4
+#define NUM_MSG_PER_CLIENT 5
+
+#define handle_error(msg)                                                      \
+  do {                                                                         \
+    perror(msg);                                                               \
+    exit(EXIT_FAILURE);                                                        \
+  } while (0)
+
+struct list_node {
+  struct list_node *next;
+  void *data;
+};
+
+struct list_handle {
+  struct list_node *last;
+  volatile uint32_t count;
+};
+
+struct client_args {
+  atomic_bool run;
+
+  int cfd;
+  struct list_handle *list_handle;
+  pthread_mutex_t *list_lock;
+};
+
+struct acceptor_args {
+  atomic_bool run;
+
+  struct list_handle *list_handle;
+  pthread_mutex_t *list_lock;
+};
+
+int init_server_socket() {
+  struct sockaddr_in addr;
+
+  int sfd = socket(AF_INET, SOCK_STREAM, 0);
+  if (sfd == -1) {
+    handle_error("socket");
+  }
+
+  memset(&addr, 0, sizeof(struct sockaddr_in));
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(PORT);
+  addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+  if (bind(sfd, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) == -1) {
+    handle_error("bind");
+  }
+
+  if (listen(sfd, LISTEN_BACKLOG) == -1) {
+    handle_error("listen");
+  }
+
+  return sfd;
+}
+
+// Set a file descriptor to non-blocking mode
+void set_non_blocking(int fd) {
+  int flags = fcntl(fd, F_GETFL, 0);
+  if (flags == -1) {
+    perror("fcntl F_GETFL");
+    exit(EXIT_FAILURE);
+  }
+  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+    perror("fcntl F_SETFL");
+    exit(EXIT_FAILURE);
+  }
+}
+
+void add_to_list(struct list_handle *list_handle, struct list_node *new_node) {
+  struct list_node *last_node = list_handle->last;
+  last_node->next = new_node;
+  list_handle->last = last_node->next;
+  list_handle->count++;
+}
+
+int collect_all(struct list_node head) {
+  struct list_node *node = head.next; // get first node after head
+  uint32_t total = 0;
+
+  while (node != NULL) {
+    printf("Collected: %s\n", (char *)node->data);
+    total++;
+
+    // Free node and advance to next item
+    struct list_node *next = node->next;
+    free(node->data);
+    free(node);
+    node = next;
+  }
+
+  return total;
+}
+
+static void *run_client(void *args) {
+  struct client_args *cargs = (struct client_args *)args;
+  int cfd = cargs->cfd;
+  set_non_blocking(cfd);
+
+  char msg_buf[BUF_SIZE];
+
+  while (cargs->run) {
