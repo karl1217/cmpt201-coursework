@@ -10,10 +10,10 @@
 #define GRN "\e[0;32m"
 #define CRESET "\e[0m"
 
-#define handle_error(msg)            \
-  do {                               \
-    perror(msg);                     \
-    exit(EXIT_FAILURE);              \
+#define handle_error(msg)                                                      \
+  do {                                                                         \
+    perror(msg);                                                               \
+    exit(EXIT_FAILURE);                                                        \
   } while (0)
 
 size_t read_all_bytes(const char *filename, void *buffer, size_t buffer_size) {
@@ -65,6 +65,18 @@ int main() {
   // TODO: Load the public key using PEM_read_PUBKEY
   EVP_PKEY *pubkey = NULL;
 
+  FILE *file = fopen("public_key.pem", "r");
+  if (!file) {
+    handle_error("Error opening file");
+  }
+
+  pubkey = PEM_read_PUBKEY(file, NULL, NULL, NULL);
+  fclose(file);
+
+  if (!pubkey) {
+    handle_error("Error reading key");
+  }
+
   // Verify each message
   for (int i = 0; i < 3; i++) {
     printf("... Verifying message %d ...\n", i + 1);
@@ -102,6 +114,24 @@ int verify(const char *message_path, const char *sign_path, EVP_PKEY *pubkey) {
 
   // TODO: Check if the message is authentic using the signature.
   // Look at: https://wiki.openssl.org/index.php/EVP_Signing_and_Verifying
+  FILE *message_file = fopen(message_path, "r");
+  size_t n = fread(message, 1, sizeof(message), message_file);
+  fclose(message_file);
 
-  return -1;
+  FILE *signature_file = fopen(sign_path, "r");
+  if (!signature_file) {
+    handle_error("Error opening file");
+  }
+  n = fread(signature, 1, sizeof(signature), signature_file);
+  fclose(signature_file);
+
+  EVP_MD_CTX *mdctx = NULL;
+  mdctx = EVP_MD_CTX_new();
+  int ret = 0;
+  EVP_DigestVerifyInit(mdctx, NULL, EVP_sha256(), NULL, pubkey);
+  EVP_DigestVerifyUpdate(mdctx, message, sizeof(message));
+  ret = EVP_DigestVerifyFinal(mdctx, signature, sizeof(signature));
+  EVP_MD_CTX_free(mdctx);
+
+  return ret;
 }
